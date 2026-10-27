@@ -514,3 +514,21 @@ Continues "Rook-Vision, EMEET Pixy + local vision AI" above ("plan for tomorrow"
 
 ## 2026-10-27 (main PC) - resolved: old handoff history merged
 The open item above (main PC history not in the repo) is done: the old Rook, TradeBot, Skills and Misc notes are appended in their own files, plus new Productivity.md and 2026-10-24_RimWorld-test-mod.md. Details and a test list are in the last section of Handoffs/Misc.md.
+
+## 2026-10-27 (main PC session, afternoon) - Rook sees again after the repo move; slow first look
+Asked: Rook on the main PC could not see the vision server on DESKTOP-2 after Desktop\Claude became the git clone; first "can you see me" was very slow in LM Studio; add timing logs; auto-load the model.
+Done:
+- Cause of "can't see": `Rook\rook_eyes.py` hardcoded `Desktop\Claude\Rook-Vision`, which moved to `Desktop\claude-old\Rook-Vision`. Changed VISION_DIR to point there (backup `Rook\backups\rook_eyes_backup_before_claude-old_path.py`). Confirmed working by the user.
+- Added timing to Rook's log (`Rook\rook_eyes_log.txt`): a "rook_eyes loaded (Rook started)" line, `look #N since Rook started`, full camera/model timing (was cut at 80 chars), and `total X.Xs` on replies, failures and timeouts. Backup `Rook\backups\rook_eyes_backup_before_timing_log.py`. Not yet run (needs a Rook restart).
+- DESKTOP-2 `config.json` had a typo in `model` (digit 1 instead of letter l in "qwen3-vl-8b"); the user fixed it on DESKTOP-2.
+- `Start_Vision_Server.bat` now runs `lms server start` and `lms load qwen/qwen3-vl-8b --gpu max --context-length 8192 -y` before starting `vision_server.py` (falls back to `%USERPROFILE%\.lmstudio\bin\lms.exe`). Flags not verified on the user's LM Studio version.
+- DESKTOP-2 is now a git clone (done in place: git init, fetch, reset --hard origin/main). Old loose `Rook-Vision\` folder there is still to be retired after the new copy is confirmed.
+Open:
+- Main PC still uses `claude-old\Rook-Vision` (has the venv and `remote_url`); the repo's `config.json` has `remote_url` empty, so moving it into the repo needs a per-PC settings file (gitignored).
+- Cold-load time of the model on the GTX 1080 not yet measured with the new log; smaller image (`max_image_side` 768) or a 4B model are the next levers.
+Things to test:
+1. DESKTOP-2: `git pull`, then in a NEW Command Prompt run `lms --version`; if not found, run `%USERPROFILE%\.lmstudio\bin\lms.exe bootstrap`.
+2. DESKTOP-2: eject the model in LM Studio, double-click `Start_Vision_Server.bat`; the window should show the server starting and the model loading, then the vision server. LM Studio should show qwen3-vl-8b READY, GPU offload full, context 8192.
+3. Main PC: restart Rook; `rook_eyes_log.txt` gets "rook_eyes loaded (Rook started)".
+4. Ask "Rook, can you see me?" twice; send the two `total X.Xs` values (look #1 vs #2).
+5. If `lms load` errors, run `lms load --help` on DESKTOP-2 and send the output.
