@@ -1,0 +1,18 @@
+{
+  "camera_index": 1,
+  "backend": "dshow",
+  "width": 1920,
+  "height": 1080,
+  "fps": 30,
+  "warmup_frames": 15,
+  "server_url": "http://localhost:1234/v1",
+  "model": "qwen/qwen3-v1-8b",
+  "max_image_side": 1024,
+  "jpeg_quality": 90,
+  "timeout_s": 180,
+  "snapshots_dir": "snapshots",
+  "keep_snapshots_from_rook": false,
+  "remote_url": "",
+  "server_port": 8765,
+  "server_token": ""
+}
