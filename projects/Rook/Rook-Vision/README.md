@@ -55,3 +55,6 @@ On the 2nd PC (one time):
 Test from the main PC browser: `http://<2nd PC IP>:8765/health` should show `"ok": true` and the model name.
 
 On the main PC: in `config.json` set `"remote_url": "http://<2nd PC IP>:8765"`. Rook's existing `rook_eyes.py` / `look.py` then use the 2nd PC automatically. Set `"remote_url": ""` to go back to the local camera. Optional `server_token` (same value in both configs) if you want a password.
+
+## Stage 6: Rook starts the vision server on demand (added 2026-10-27, not yet tested)
+Run `Install_Launcher_Startup.bat` once on the 2nd PC (it starts `vision_launcher.py` now and at every login, no window) and run `Open_Firewall.bat` as administrator again (it now also opens port 8766). When you ask Rook to look and the vision server is not answering, she says she is pulling it up, asks the launcher to run `Start_Vision_Server.bat`, waits for it, then looks. If the 2nd PC is off she says she can't reach it. Optional `launcher_port` in `config.json` (default 8766). Log: `launcher_log.txt`.

@@ -548,3 +548,23 @@ Things to test:
 2. Main PC: restart Rook, ask "Rook, can you see me?" three times; send the `total` lines. Expect a one-sentence answer and a model time of about 4 s (was 7 to 10 s).
 3. Ask "what's on my desk" and "what am I holding" once each and check the answers are still complete sentences, not cut off.
 4. Ask Rook to read a label or screen text; it should still read it fully (cap is 80 tokens).
+
+
+## 2026-10-27 (main PC session, evening) - Rook starts the vision server on demand
+
+**Asked:** when Rook is asked to look and the vision server on DESKTOP-2 isn't running, she should say she's pulling it up, start it, wait, then look.
+
+**Done:**
+- New `projects/Rook/Rook-Vision/vision_launcher.py` (port 8766, `/status` and `/start`, optional `X-Rook-Token`, 60s cooldown, log `launcher_log.txt`). It can only run `Start_Vision_Server.bat`.
+- New `Install_Launcher_Startup.bat` (Startup shortcut using `pythonw.exe`, starts the launcher now and at every login). `Open_Firewall.bat` now also opens 8766. README Stage 6 added. `launcher_log.txt` in `.gitignore`.
+- Main PC `Rook\rook_eyes.py`: `answer(text, say=None)` now calls `_ensure_server(say)` first (health check on `remote_url`, then says "Pulling up the vision system, one moment.", asks the launcher to start, polls up to 120s). Spoken failures: can't reach the vision computer / couldn't start / didn't come up in time. `Rook\rook.py` passes `say=rook_says`. Backups in `Rook\backups\` (`rook_eyes_backup_before_autostart.py`, `rook_backup_before_eyes_autostart.py`). These Rook files are outside the repo.
+
+**Untested / open:** everything above. The earlier shorter-answer tests are still pending too. The main PC clone and DESKTOP-2 both need `git pull`.
+
+**Things to test**
+1. DESKTOP-2: `git pull` in `Desktop\Claude`. Run `Open_Firewall.bat` as administrator (port 8766). Run `Install_Launcher_Startup.bat` once.
+2. From the main PC browser open `http://<DESKTOP-2 IP>:8766/status`; expect `{"launcher": true, "server_up": ...}`.
+3. Close the vision server window (and LM Studio server if you like). Restart Rook on the main PC, ask "can you see me". Expect "Let me take a look.", then "Pulling up the vision system, one moment.", then an answer. Check `rook_eyes_log.txt` and `launcher_log.txt`.
+4. With the server already running, ask again: no "pulling it up" line.
+5. Turn DESKTOP-2 off or stop the launcher and ask: expect "I can't reach the vision computer."
+6. Then the shorter-answer tests from the previous section.
