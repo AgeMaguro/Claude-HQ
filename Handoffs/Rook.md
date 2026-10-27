@@ -583,3 +583,23 @@ Things to test:
 2. Main PC: restart Rook, server off. Ask "can you see me" (she pulls it up), then close Rook normally. Expect the server window to close, and LM Studio to show no loaded model. Check `rook_eyes_log.txt` for "asked the launcher to stop" and `launcher_log.txt`.
 3. Start the server by hand, start Rook, ask her to look, close Rook: the server should stay running.
 4. Close Rook by clicking the window X and note whether the server stops (it may not).
+
+
+## 2026-10-27 (main PC session, 17:40) - workshop mode: "take a look at what I'm holding" -> 3D model
+
+**Asked:** a workshop-mode command to take a look, isolate what the user is holding, assume its dimensions within reasonable limits, and create a 3D model.
+
+**Done (untested on real hardware; regexes and parsing tested with stubs):**
+- Rook-Vision (in the repo): `vision_client.py` has `OBJECT_SYSTEM` / `OBJECT_QUESTION` (structured reply: OBJECT, SHAPE, SIZE_MM using the hand as the scale reference, CONFIDENCE, or NONE). `vision_server.py` `/look` accepts `"mode": "object"` (uses those, `object_max_tokens` default 160). `look.py --object` sends it. The main PC copy `claude-old\Rook-Vision\look.py` was replaced with the new one (backup `claude-old\Rook-Vision\backups\look_backup_before_object_mode.py`).
+- Main PC `Rook\rook_eyes.py`: new `look_object(say)` (starts the server if needed, camera must be on). `Rook\workshop_mode.py`: new scan command, only while workshop mode is on. It looks, speaks what it sees and the assumed size, clamps each dimension to 5-200 mm (`MIN_SIZE_MM`, `MAX_SIZE_MM`), queues a note marked as a NEW part, and then runs the normal "make it" build. Anything you said earlier in workshop mode is included in the build. Backups: `Rook\backups\rook_eyes_backup_before_object_scan.py`, `workshop_mode_backup_before_scan.py`.
+- Phrases that trigger it: a line with "holding" / "in my hand" plus look/scan/isolate/measure/copy/recreate/replicate/duplicate (or "make/model/build/create (a model of) what ..."), and "scan this/that/it". "Model this" and "make it" still just build from notes.
+
+**Open:** needs `git pull` and a server restart on DESKTOP-2 (an old server ignores the mode and Rook says she sees nothing). Size estimates from a webcam are rough; the hand is the only scale reference.
+
+**Things to test**
+1. DESKTOP-2: `git pull`. Restart Rook (the launcher will start the new server).
+2. Say "Rook, workshop mode". Hold a small object (a mug, a screwdriver, a box) clearly in front of the camera and say "take a look, isolate what I'm holding, and assume its dimensions within reasonable limits to create a 3D model".
+3. Expect: "Taking a look...", then "I see ... I'll assume it's about X by Y by Z millimeters", then "Making that now", then an STL in `Rook\workshop\`. Compare the size to the real object.
+4. Hold nothing and try again: expect "I don't see anything in your hand."
+5. Say "make the hole bigger" and then "make it" after a scan: the part should change, not start over.
+6. Check `rook_eyes_log.txt` for "object look reply" to see the raw description and timing (expect ~8-10s for the look).

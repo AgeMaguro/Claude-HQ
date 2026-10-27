@@ -54,6 +54,21 @@ def list_models(cfg):
     return [m["id"] for m in data.get("data", [])]
 
 
+# Used by workshop mode ("scan what I'm holding"): a short structured description plus a size estimate.
+OBJECT_QUESTION = "Describe the object being held, using the required format."
+OBJECT_SYSTEM = (
+    "You help a 3D-printing assistant. You are given one webcam photo of a person holding one object. "
+    "Ignore the person, their hands, and the background; describe only the held object. "
+    "Reply in exactly these lines and nothing else:\n"
+    "OBJECT: what it is, a few words\n"
+    "SHAPE: overall geometry and notable features (holes, ridges, rounded edges, hollow or solid), 1-2 short sentences\n"
+    "SIZE_MM: length x width x height in millimeters, ONE best estimate, no ranges. Use the hand as the scale: "
+    "an adult palm is about 85 mm wide and a finger about 18 mm wide. Objects held in one hand are rarely over 200 mm.\n"
+    "CONFIDENCE: low, medium or high\n"
+    "If no object is being held, reply with only: NONE"
+)
+
+
 def ask_image(cfg, image, question, model=None, system=DEFAULT_SYSTEM, max_tokens=None):
     """Returns (answer_text, seconds). Raises RuntimeError with a plain message."""
     data_url = image_to_data_url(image, cfg.get("max_image_side", 1024), cfg.get("jpeg_quality", 90))

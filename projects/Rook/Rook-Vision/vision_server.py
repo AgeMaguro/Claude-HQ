@@ -18,7 +18,7 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from common import load_config, grab_frame, save_frame
-from vision_client import ask_image, list_models
+from vision_client import ask_image, list_models, OBJECT_QUESTION, OBJECT_SYSTEM
 
 CFG = load_config()
 LOCK = threading.Lock()  # one camera, one question at a time
@@ -58,7 +58,9 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(401, {"error": "bad token"})
         try:
             n = int(self.headers.get("Content-Length", "0"))
-            question = (json.loads(self.rfile.read(n) or b"{}").get("question") or "").strip()
+            body = json.loads(self.rfile.read(n) or b"{}")
+            question = (body.get("question") or "").strip()
+            mode = body.get("mode")
             question = question or "Describe what you see in one to three sentences."
             with LOCK:
                 t0 = time.time()
@@ -66,7 +68,11 @@ class Handler(BaseHTTPRequestHandler):
                 t_cam = time.time() - t0
                 if CFG.get("keep_snapshots_from_rook"):
                     save_frame(frame, CFG)
-                answer, t_model = ask_image(CFG, frame, question)
+                if mode == "object":   # workshop mode: structured object description, longer answer allowed
+                    answer, t_model = ask_image(CFG, frame, OBJECT_QUESTION, system=OBJECT_SYSTEM,
+                                                max_tokens=CFG.get("object_max_tokens", 160))
+                else:
+                    answer, t_model = ask_image(CFG, frame, question)
             self._send(200, {"answer": answer, "t_cam": round(t_cam, 2), "t_model": round(t_model, 2)})
         except Exception as e:
             self._send(500, {"error": str(e)})
