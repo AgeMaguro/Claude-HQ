@@ -58,3 +58,5 @@ On the main PC: in `config.json` set `"remote_url": "http://<2nd PC IP>:8765"`. 
 
 ## Stage 6: Rook starts the vision server on demand (added 2026-10-27, not yet tested)
 Run `Install_Launcher_Startup.bat` once on the 2nd PC (it starts `vision_launcher.py` now and at every login, no window) and run `Open_Firewall.bat` as administrator again (it now also opens port 8766). When you ask Rook to look and the vision server is not answering, she says she is pulling it up, asks the launcher to run `Start_Vision_Server.bat`, waits for it, then looks. If the 2nd PC is off she says she can't reach it. Optional `launcher_port` in `config.json` (default 8766). Log: `launcher_log.txt`.
+
+When Rook shuts down normally she asks the launcher to stop the server (only if she was the one who started it this session) and to unload the model from LM Studio. If Rook's window is force-closed this can't happen; use the `/stop` endpoint or close the server window by hand.

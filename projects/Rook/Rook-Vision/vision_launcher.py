@@ -8,6 +8,7 @@ is not running. It can start that one batch file and nothing else.
 
   GET  /status  -> {"launcher": true, "server_up": true/false}
   POST /start   -> starts Start_Vision_Server.bat unless the server is already up or was just started
+  POST /stop    -> stops the vision server (and its window) and unloads the model from LM Studio to free the GPU
 
 Settings in config.json (all optional): launcher_port (8766), server_port (8765), server_token ("" = none;
 the same token as the vision server, sent as the X-Rook-Token header).
@@ -29,7 +30,7 @@ PORT = int(CFG.get("launcher_port", 8766))
 SERVER_PORT = int(CFG.get("server_port", 8765))
 COOLDOWN_SECONDS = 60   # after a start, don't start a second copy while the first is still loading
 LOCK = threading.Lock()
-STATE = {"last_start": 0.0}
+STATE = {"last_start": 0.0, "pid": None}
 LOG = os.path.join(HERE, "launcher_log.txt")
 
 
@@ -54,7 +55,33 @@ def server_up():
 
 def start_server():
     flags = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)  # own window, like double-clicking the .bat
-    subprocess.Popen(["cmd", "/c", os.path.join(HERE, "Start_Vision_Server.bat")], cwd=HERE, creationflags=flags)
+    p = subprocess.Popen(["cmd", "/c", os.path.join(HERE, "Start_Vision_Server.bat")], cwd=HERE, creationflags=flags)
+    STATE["pid"] = p.pid
+
+
+def _run(cmd):
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=30,
+                              creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    except Exception as e:
+        log(f"command failed {cmd[0]}: {e}")
+        return None
+
+
+def stop_server():
+    """Kill the server's window/process tree, then anything still listening on the server port, then unload LM Studio models."""
+    if STATE["pid"]:
+        _run(["taskkill", "/PID", str(STATE["pid"]), "/T", "/F"])   # the cmd window we opened and the python under it
+        STATE["pid"] = None
+    # a server started by hand (or the window was already gone): kill whatever owns the port
+    _run(["powershell", "-NoProfile", "-Command",
+          f"Get-NetTCPConnection -LocalPort {SERVER_PORT} -State Listen -ErrorAction SilentlyContinue | "
+          "ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }"])
+    lms = "lms"
+    if _run(["where", "lms"]) is None or _run(["where", "lms"]).returncode != 0:
+        lms = os.path.join(os.path.expanduser("~"), ".lmstudio", "bin", "lms.exe")
+    _run([lms, "unload", "--all"])
+    log("stopped vision server and unloaded models")
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -81,10 +108,15 @@ class Handler(BaseHTTPRequestHandler):
         self._send(200, {"launcher": True, "server_up": server_up()})
 
     def do_POST(self):
-        if self.path != "/start":
+        if self.path not in ("/start", "/stop"):
             return self._send(404, {"error": "not found"})
         if not self._authorized():
             return self._send(401, {"error": "bad token"})
+        if self.path == "/stop":
+            with LOCK:
+                stop_server()
+                STATE["last_start"] = 0.0
+            return self._send(200, {"stopped": True})
         with LOCK:
             if server_up():
                 return self._send(200, {"started": False, "already_running": True})

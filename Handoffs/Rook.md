@@ -568,3 +568,18 @@ Things to test:
 4. With the server already running, ask again: no "pulling it up" line.
 5. Turn DESKTOP-2 off or stop the launcher and ask: expect "I can't reach the vision computer."
 6. Then the shorter-answer tests from the previous section.
+
+
+## 2026-10-27 (main PC session, 17:10) - on-demand start tested OK; Rook now stops the vision server on exit
+
+**Tested OK (user):** with the server off, Rook said she was pulling it up; server was up after 14s, first look 6.5s total. Four looks with the shorter answers: 6.5 / 6.1 / 6.0 / 6.0s (model 3.6-4.1s, camera 2.3s), down from 8-11s.
+
+**Asked:** Rook should shut the vision server down when she shuts down.
+
+**Done:** `vision_launcher.py` gained `POST /stop` (kills the server window/process tree, anything still listening on 8765, then `lms unload --all`). Main PC `Rook\rook_eyes.py` registers an `atexit` hook that calls `/stop`, only if Rook started the server this session (so a hand-started server is left alone). Backup: `Rook\backups\rook_eyes_backup_before_shutdown_hook.py`. Limits: does not run if Rook's window is force-killed or the PC crashes.
+
+**Things to test**
+1. DESKTOP-2: `git pull`, then restart the launcher (end the pythonw.exe process in Task Manager, or sign out/in, then run `Install_Launcher_Startup.bat` again) so it loads `/stop`.
+2. Main PC: restart Rook, server off. Ask "can you see me" (she pulls it up), then close Rook normally. Expect the server window to close, and LM Studio to show no loaded model. Check `rook_eyes_log.txt` for "asked the launcher to stop" and `launcher_log.txt`.
+3. Start the server by hand, start Rook, ask her to look, close Rook: the server should stay running.
+4. Close Rook by clicking the window X and note whether the server stops (it may not).
