@@ -52,7 +52,7 @@ def look_local(cfg, question, mode=None):
         save_frame(frame, cfg)
     if mode == "object":
         answer, t_model = ask_image(cfg, frame, OBJECT_QUESTION, system=OBJECT_SYSTEM,
-                                    max_tokens=cfg.get("object_max_tokens", 160))
+                                    max_tokens=cfg.get("object_max_tokens", 260))
     else:
         answer, t_model = ask_image(cfg, frame, question)
     print(f"timing: camera {t_cam:.1f}s, model {t_model:.1f}s", file=sys.stderr)

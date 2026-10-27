@@ -603,3 +603,16 @@ Things to test:
 4. Hold nothing and try again: expect "I don't see anything in your hand."
 5. Say "make the hole bigger" and then "make it" after a scan: the part should change, not start over.
 6. Check `rook_eyes_log.txt` for "object look reply" to see the raw description and timing (expect ~8-10s for the look).
+
+
+## 2026-10-27 (main PC session, 17:50) - workshop mode: workshop works without "Rook"; more detailed scanned models
+
+**Findings:** "Workshop mode." without Rook's name was passed to the normal AI (now accepted when 4 words or fewer). The first scan (cat figurine, `workshop\cat_figurine_v1`) was simplistic because (a) the vision description was one thin SHAPE line, (b) my scan note told Claude to make a "simple approximation, no tiny details", (c) the CAD prompt said "keep the script short and simple". The size also looked off (150 x 50 x 120 for a slender figurine; axes were ambiguous).
+
+**Changed:** vision now returns OBJECT / PARTS / FEATURES / SIZE_MM (width x depth x height, Z up) / CONFIDENCE, up to `object_max_tokens` = 260 (was 160, so the look takes longer, up to ~25 s). `workshop_mode.py`: `SCAN_DETAIL` setting asks for a detailed, multi-primitive, still-printable model; PARTS and FEATURES go into the note. `workshop_cad.py`: prompt allows ~100-line scripts for detailed shapes; `EFFORT` high, `MAX_TRIES` 3, `MAX_TOKENS` 10000, `RUN_TIMEOUT` 150. Backups in `Rook\backups\` (`*_before_detail.py`, `workshop_mode_backup_before_unnamed_enter.py`). Free-standing organic shapes will still be approximations; CadQuery has no sculpting. Option not taken: `MODEL = "claude-opus-5-5"` in `workshop_cad.py` for better results at higher cost.
+
+**Things to test**
+1. DESKTOP-2: `git pull`, restart Rook (launcher starts the new server).
+2. Workshop mode, hold the figurine, repeat the scan phrase. Compare the new STL with `cat_figurine_v1`: more parts (head, ears, limbs, tail), better proportions, closer size.
+3. Check `rook_eyes_log.txt` "object look reply" for the PARTS/FEATURES lines and the total time.
+4. If still too plain, try `MODEL = "claude-opus-5-5"`, or hold the object up closer to the camera against a plain background.

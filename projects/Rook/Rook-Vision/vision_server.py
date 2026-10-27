@@ -70,7 +70,7 @@ class Handler(BaseHTTPRequestHandler):
                     save_frame(frame, CFG)
                 if mode == "object":   # workshop mode: structured object description, longer answer allowed
                     answer, t_model = ask_image(CFG, frame, OBJECT_QUESTION, system=OBJECT_SYSTEM,
-                                                max_tokens=CFG.get("object_max_tokens", 160))
+                                                max_tokens=CFG.get("object_max_tokens", 260))
                 else:
                     answer, t_model = ask_image(CFG, frame, question)
             self._send(200, {"answer": answer, "t_cam": round(t_cam, 2), "t_model": round(t_model, 2)})
