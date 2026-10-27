@@ -532,3 +532,19 @@ Things to test:
 3. Main PC: restart Rook; `rook_eyes_log.txt` gets "rook_eyes loaded (Rook started)".
 4. Ask "Rook, can you see me?" twice; send the two `total X.Xs` values (look #1 vs #2).
 5. If `lms load` errors, run `lms load --help` on DESKTOP-2 and send the output.
+
+## 2026-10-27 (main PC session, late afternoon) - shorter Rook-Vision answers
+Asked: speed up "can you see me" by capping answer length (option 1 of the speed options).
+Why: LM Studio log on DESKTOP-2 showed generation at about 10.7 tokens/s (about 94 ms per token, 46 tokens = 4.2 s of a 6.4 s request); an earlier 31-token answer was faster. Image shrink (max_image_side 768, 1280x720, warmup_frames 5) cut prompt tokens 681 -> 441 and the camera step about 0.4 s, but did not help the model step.
+Done:
+- `vision_client.py` (repo, DESKTOP-2 server): system prompt now asks for one short sentence (about 20 words) unless asked to read text; `ask_image` max_tokens is now `max_answer_tokens` from config.json, default 80 (was 300). The key is not in config.json yet, so the default applies.
+- `Rook\rook_eyes.py` (main PC): the three description questions now ask for one short sentence (the "read the text" question is unchanged). Backup `Rook\backups\rook_eyes_backup_before_short_answers.py`.
+Not done / open:
+- Not run yet: needs `git pull` on DESKTOP-2 and a restart of the vision server (it imports vision_client at start) plus a Rook restart.
+- `claude-old\Rook-Vision\vision_client.py` on the main PC (used only in local-camera mode) still has the old prompt.
+- Other speed ideas: try the 4B model; Flash Attention off on the 1080; close other GPU users (7.6 of 8 GB VRAM in use); keep the camera open in the server (code change).
+Things to test:
+1. DESKTOP-2: close the vision server window, `git pull`, start `Start_Vision_Server.bat` again.
+2. Main PC: restart Rook, ask "Rook, can you see me?" three times; send the `total` lines. Expect a one-sentence answer and a model time of about 4 s (was 7 to 10 s).
+3. Ask "what's on my desk" and "what am I holding" once each and check the answers are still complete sentences, not cut off.
+4. Ask Rook to read a label or screen text; it should still read it fully (cap is 80 tokens).

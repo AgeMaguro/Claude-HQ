@@ -14,8 +14,9 @@ import cv2
 DEFAULT_SYSTEM = (
     "You are the eyes of a desktop voice assistant named Rook. You are given one "
     "photo from a webcam on the user's desk. Answer the question briefly and "
-    "plainly, in one to three sentences, as it will be spoken aloud. Say only what "
-    "you can actually see. If something is unclear or too small to read, say so."
+    "plainly, in one short sentence (about 20 words) unless asked to read text, as "
+    "it will be spoken aloud. Say only what you can actually see. If something is "
+    "unclear or too small to read, say so."
 )
 
 
@@ -53,7 +54,7 @@ def list_models(cfg):
     return [m["id"] for m in data.get("data", [])]
 
 
-def ask_image(cfg, image, question, model=None, system=DEFAULT_SYSTEM, max_tokens=300):
+def ask_image(cfg, image, question, model=None, system=DEFAULT_SYSTEM, max_tokens=None):
     """Returns (answer_text, seconds). Raises RuntimeError with a plain message."""
     data_url = image_to_data_url(image, cfg.get("max_image_side", 1024), cfg.get("jpeg_quality", 90))
     payload = {
@@ -65,7 +66,8 @@ def ask_image(cfg, image, question, model=None, system=DEFAULT_SYSTEM, max_token
                 {"type": "image_url", "image_url": {"url": data_url}},
             ]},
         ],
-        "max_tokens": max_tokens,
+        # Each generated token costs ~0.1 s on the GTX 1080, so cap the answer. Override with "max_answer_tokens" in config.json.
+        "max_tokens": max_tokens or cfg.get("max_answer_tokens", 80),
         "temperature": 0.2,
     }
     url = cfg["server_url"].rstrip("/") + "/chat/completions"
