@@ -6,3 +6,4 @@ results/
 backups/
 .env
 *.key
+launcher_log.txt

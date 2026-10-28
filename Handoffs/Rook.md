@@ -532,3 +532,87 @@ Things to test:
 3. Main PC: restart Rook; `rook_eyes_log.txt` gets "rook_eyes loaded (Rook started)".
 4. Ask "Rook, can you see me?" twice; send the two `total X.Xs` values (look #1 vs #2).
 5. If `lms load` errors, run `lms load --help` on DESKTOP-2 and send the output.
+
+## 2026-10-27 (main PC session, late afternoon) - shorter Rook-Vision answers
+Asked: speed up "can you see me" by capping answer length (option 1 of the speed options).
+Why: LM Studio log on DESKTOP-2 showed generation at about 10.7 tokens/s (about 94 ms per token, 46 tokens = 4.2 s of a 6.4 s request); an earlier 31-token answer was faster. Image shrink (max_image_side 768, 1280x720, warmup_frames 5) cut prompt tokens 681 -> 441 and the camera step about 0.4 s, but did not help the model step.
+Done:
+- `vision_client.py` (repo, DESKTOP-2 server): system prompt now asks for one short sentence (about 20 words) unless asked to read text; `ask_image` max_tokens is now `max_answer_tokens` from config.json, default 80 (was 300). The key is not in config.json yet, so the default applies.
+- `Rook\rook_eyes.py` (main PC): the three description questions now ask for one short sentence (the "read the text" question is unchanged). Backup `Rook\backups\rook_eyes_backup_before_short_answers.py`.
+Not done / open:
+- Not run yet: needs `git pull` on DESKTOP-2 and a restart of the vision server (it imports vision_client at start) plus a Rook restart.
+- `claude-old\Rook-Vision\vision_client.py` on the main PC (used only in local-camera mode) still has the old prompt.
+- Other speed ideas: try the 4B model; Flash Attention off on the 1080; close other GPU users (7.6 of 8 GB VRAM in use); keep the camera open in the server (code change).
+Things to test:
+1. DESKTOP-2: close the vision server window, `git pull`, start `Start_Vision_Server.bat` again.
+2. Main PC: restart Rook, ask "Rook, can you see me?" three times; send the `total` lines. Expect a one-sentence answer and a model time of about 4 s (was 7 to 10 s).
+3. Ask "what's on my desk" and "what am I holding" once each and check the answers are still complete sentences, not cut off.
+4. Ask Rook to read a label or screen text; it should still read it fully (cap is 80 tokens).
+
+
+## 2026-10-27 (main PC session, evening) - Rook starts the vision server on demand
+
+**Asked:** when Rook is asked to look and the vision server on DESKTOP-2 isn't running, she should say she's pulling it up, start it, wait, then look.
+
+**Done:**
+- New `projects/Rook/Rook-Vision/vision_launcher.py` (port 8766, `/status` and `/start`, optional `X-Rook-Token`, 60s cooldown, log `launcher_log.txt`). It can only run `Start_Vision_Server.bat`.
+- New `Install_Launcher_Startup.bat` (Startup shortcut using `pythonw.exe`, starts the launcher now and at every login). `Open_Firewall.bat` now also opens 8766. README Stage 6 added. `launcher_log.txt` in `.gitignore`.
+- Main PC `Rook\rook_eyes.py`: `answer(text, say=None)` now calls `_ensure_server(say)` first (health check on `remote_url`, then says "Pulling up the vision system, one moment.", asks the launcher to start, polls up to 120s). Spoken failures: can't reach the vision computer / couldn't start / didn't come up in time. `Rook\rook.py` passes `say=rook_says`. Backups in `Rook\backups\` (`rook_eyes_backup_before_autostart.py`, `rook_backup_before_eyes_autostart.py`). These Rook files are outside the repo.
+
+**Untested / open:** everything above. The earlier shorter-answer tests are still pending too. The main PC clone and DESKTOP-2 both need `git pull`.
+
+**Things to test**
+1. DESKTOP-2: `git pull` in `Desktop\Claude`. Run `Open_Firewall.bat` as administrator (port 8766). Run `Install_Launcher_Startup.bat` once.
+2. From the main PC browser open `http://<DESKTOP-2 IP>:8766/status`; expect `{"launcher": true, "server_up": ...}`.
+3. Close the vision server window (and LM Studio server if you like). Restart Rook on the main PC, ask "can you see me". Expect "Let me take a look.", then "Pulling up the vision system, one moment.", then an answer. Check `rook_eyes_log.txt` and `launcher_log.txt`.
+4. With the server already running, ask again: no "pulling it up" line.
+5. Turn DESKTOP-2 off or stop the launcher and ask: expect "I can't reach the vision computer."
+6. Then the shorter-answer tests from the previous section.
+
+
+## 2026-10-27 (main PC session, 17:10) - on-demand start tested OK; Rook now stops the vision server on exit
+
+**Tested OK (user):** with the server off, Rook said she was pulling it up; server was up after 14s, first look 6.5s total. Four looks with the shorter answers: 6.5 / 6.1 / 6.0 / 6.0s (model 3.6-4.1s, camera 2.3s), down from 8-11s.
+
+**Asked:** Rook should shut the vision server down when she shuts down.
+
+**Done:** `vision_launcher.py` gained `POST /stop` (kills the server window/process tree, anything still listening on 8765, then `lms unload --all`). Main PC `Rook\rook_eyes.py` registers an `atexit` hook that calls `/stop`, only if Rook started the server this session (so a hand-started server is left alone). Backup: `Rook\backups\rook_eyes_backup_before_shutdown_hook.py`. Limits: does not run if Rook's window is force-killed or the PC crashes.
+
+**Things to test**
+1. DESKTOP-2: `git pull`, then restart the launcher (end the pythonw.exe process in Task Manager, or sign out/in, then run `Install_Launcher_Startup.bat` again) so it loads `/stop`.
+2. Main PC: restart Rook, server off. Ask "can you see me" (she pulls it up), then close Rook normally. Expect the server window to close, and LM Studio to show no loaded model. Check `rook_eyes_log.txt` for "asked the launcher to stop" and `launcher_log.txt`.
+3. Start the server by hand, start Rook, ask her to look, close Rook: the server should stay running.
+4. Close Rook by clicking the window X and note whether the server stops (it may not).
+
+
+## 2026-10-27 (main PC session, 17:40) - workshop mode: "take a look at what I'm holding" -> 3D model
+
+**Asked:** a workshop-mode command to take a look, isolate what the user is holding, assume its dimensions within reasonable limits, and create a 3D model.
+
+**Done (untested on real hardware; regexes and parsing tested with stubs):**
+- Rook-Vision (in the repo): `vision_client.py` has `OBJECT_SYSTEM` / `OBJECT_QUESTION` (structured reply: OBJECT, SHAPE, SIZE_MM using the hand as the scale reference, CONFIDENCE, or NONE). `vision_server.py` `/look` accepts `"mode": "object"` (uses those, `object_max_tokens` default 160). `look.py --object` sends it. The main PC copy `claude-old\Rook-Vision\look.py` was replaced with the new one (backup `claude-old\Rook-Vision\backups\look_backup_before_object_mode.py`).
+- Main PC `Rook\rook_eyes.py`: new `look_object(say)` (starts the server if needed, camera must be on). `Rook\workshop_mode.py`: new scan command, only while workshop mode is on. It looks, speaks what it sees and the assumed size, clamps each dimension to 5-200 mm (`MIN_SIZE_MM`, `MAX_SIZE_MM`), queues a note marked as a NEW part, and then runs the normal "make it" build. Anything you said earlier in workshop mode is included in the build. Backups: `Rook\backups\rook_eyes_backup_before_object_scan.py`, `workshop_mode_backup_before_scan.py`.
+- Phrases that trigger it: a line with "holding" / "in my hand" plus look/scan/isolate/measure/copy/recreate/replicate/duplicate (or "make/model/build/create (a model of) what ..."), and "scan this/that/it". "Model this" and "make it" still just build from notes.
+
+**Open:** needs `git pull` and a server restart on DESKTOP-2 (an old server ignores the mode and Rook says she sees nothing). Size estimates from a webcam are rough; the hand is the only scale reference.
+
+**Things to test**
+1. DESKTOP-2: `git pull`. Restart Rook (the launcher will start the new server).
+2. Say "Rook, workshop mode". Hold a small object (a mug, a screwdriver, a box) clearly in front of the camera and say "take a look, isolate what I'm holding, and assume its dimensions within reasonable limits to create a 3D model".
+3. Expect: "Taking a look...", then "I see ... I'll assume it's about X by Y by Z millimeters", then "Making that now", then an STL in `Rook\workshop\`. Compare the size to the real object.
+4. Hold nothing and try again: expect "I don't see anything in your hand."
+5. Say "make the hole bigger" and then "make it" after a scan: the part should change, not start over.
+6. Check `rook_eyes_log.txt` for "object look reply" to see the raw description and timing (expect ~8-10s for the look).
+
+
+## 2026-10-27 (main PC session, 17:50) - workshop mode: workshop works without "Rook"; more detailed scanned models
+
+**Findings:** "Workshop mode." without Rook's name was passed to the normal AI (now accepted when 4 words or fewer). The first scan (cat figurine, `workshop\cat_figurine_v1`) was simplistic because (a) the vision description was one thin SHAPE line, (b) my scan note told Claude to make a "simple approximation, no tiny details", (c) the CAD prompt said "keep the script short and simple". The size also looked off (150 x 50 x 120 for a slender figurine; axes were ambiguous).
+
+**Changed:** vision now returns OBJECT / PARTS / FEATURES / SIZE_MM (width x depth x height, Z up) / CONFIDENCE, up to `object_max_tokens` = 260 (was 160, so the look takes longer, up to ~25 s). `workshop_mode.py`: `SCAN_DETAIL` setting asks for a detailed, multi-primitive, still-printable model; PARTS and FEATURES go into the note. `workshop_cad.py`: prompt allows ~100-line scripts for detailed shapes; `EFFORT` high, `MAX_TRIES` 3, `MAX_TOKENS` 10000, `RUN_TIMEOUT` 150. Backups in `Rook\backups\` (`*_before_detail.py`, `workshop_mode_backup_before_unnamed_enter.py`). Free-standing organic shapes will still be approximations; CadQuery has no sculpting. Option not taken: `MODEL = "claude-opus-5-5"` in `workshop_cad.py` for better results at higher cost.
+
+**Things to test**
+1. DESKTOP-2: `git pull`, restart Rook (launcher starts the new server).
+2. Workshop mode, hold the figurine, repeat the scan phrase. Compare the new STL with `cat_figurine_v1`: more parts (head, ears, limbs, tail), better proportions, closer size.
+3. Check `rook_eyes_log.txt` "object look reply" for the PARTS/FEATURES lines and the total time.
+4. If still too plain, try `MODEL = "claude-opus-5-5"`, or hold the object up closer to the camera against a plain background.

@@ -14,8 +14,9 @@ import cv2
 DEFAULT_SYSTEM = (
     "You are the eyes of a desktop voice assistant named Rook. You are given one "
     "photo from a webcam on the user's desk. Answer the question briefly and "
-    "plainly, in one to three sentences, as it will be spoken aloud. Say only what "
-    "you can actually see. If something is unclear or too small to read, say so."
+    "plainly, in one short sentence (about 20 words) unless asked to read text, as "
+    "it will be spoken aloud. Say only what you can actually see. If something is "
+    "unclear or too small to read, say so."
 )
 
 
@@ -53,7 +54,26 @@ def list_models(cfg):
     return [m["id"] for m in data.get("data", [])]
 
 
-def ask_image(cfg, image, question, model=None, system=DEFAULT_SYSTEM, max_tokens=300):
+# Used by workshop mode ("scan what I'm holding"): a short structured description plus a size estimate.
+OBJECT_QUESTION = "Describe the object being held, using the required format."
+OBJECT_SYSTEM = (
+    "You help a 3D-printing assistant. You are given one webcam photo of a person holding one object. "
+    "Ignore the person, their hands, and the background; describe only the held object in enough detail to model it. "
+    "Reply in exactly these lines and nothing else:\n"
+    "OBJECT: what it is, a few words\n"
+    "PARTS: the main parts from top to bottom or front to back, each with its shape and rough proportion, "
+    "e.g. 'head: round, 1/3 of height; ears: two pointed triangles; body: tapered cylinder; base: flat oval plate'. Up to 6 parts.\n"
+    "FEATURES: distinctive 3D details worth modelling (pose, handles, holes, ridges, raised or recessed shapes, curves). "
+    "Ignore colors and flat printed patterns.\n"
+    "SIZE_MM: width x depth x height in millimeters, ONE best estimate, no ranges. Height is the vertical size as the object "
+    "normally stands or sits. Use the hand as the scale: an adult palm is about 85 mm wide and a finger about 18 mm wide. "
+    "Objects held in one hand are rarely over 200 mm.\n"
+    "CONFIDENCE: low, medium or high\n"
+    "If no object is being held, reply with only: NONE"
+)
+
+
+def ask_image(cfg, image, question, model=None, system=DEFAULT_SYSTEM, max_tokens=None):
     """Returns (answer_text, seconds). Raises RuntimeError with a plain message."""
     data_url = image_to_data_url(image, cfg.get("max_image_side", 1024), cfg.get("jpeg_quality", 90))
     payload = {
@@ -65,7 +85,8 @@ def ask_image(cfg, image, question, model=None, system=DEFAULT_SYSTEM, max_token
                 {"type": "image_url", "image_url": {"url": data_url}},
             ]},
         ],
-        "max_tokens": max_tokens,
+        # Each generated token costs ~0.1 s on the GTX 1080, so cap the answer. Override with "max_answer_tokens" in config.json.
+        "max_tokens": max_tokens or cfg.get("max_answer_tokens", 80),
         "temperature": 0.2,
     }
     url = cfg["server_url"].rstrip("/") + "/chat/completions"
