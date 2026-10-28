@@ -26,6 +26,7 @@ This folder was called "Claude Handoff" until 2026-10-12. Older notes still say 
   - `Misc.md` - 2FA in KeePassXC, PokeAPI/TwitchIO, God's Eye View, Python versions, folder cleanup and rename
   - `Productivity.md` - Productivity plugin setup (tasks, memory, dashboard)
   - `2026-10-24_RimWorld-test-mod.md` - RimWorld test mods: XML mod (Hearth Lantern, Trail Biscuit) and Harmony/HugsLib C# patch mod; both live in the game's `Mods\` as `ClaudeTest_HearthAndBiscuit` and `ClaudeTest_CrunchPatch`; session 2 has the C# build recipe; session 3 is the colony tracker mod (`ClaudeTest_ColonyTracker`)
+  - `2026-10-28_Dragonwilds-server.md` - RuneScape: Dragonwilds dedicated server on DESKTOP-2: config path, ports (UDP 7777), Vilo port forwarding, launcher .bat, and the 16-character name truncation that hid it from the browser (search `Forsaken Dragonw`)
 - `projects/Rook/` - Rook voice assistant; `Rook-Vision/` = EMEET Pixy camera + local vision model so Rook can see (scripts, `README.md` with the stages). Old notes call it `Rook-Vision\`. Hooked into Rook via `Rook\rook_eyes.py` (2026-10-13, tested working by the user). Stage 5 (2026-10-27): camera + LM Studio can live on the 2nd PC via `vision_server.py` and `remote_url` in `config.json`; see its README. Notes: last section of `Handoffs/Rook.md`.
 - `projects/TradeBot/` - Alpaca paper-account stock watcher (code not moved into the repo yet; see below)
 - `.gitignore` - keeps venvs, backups, snapshots, results, `.env` and keys out of git
